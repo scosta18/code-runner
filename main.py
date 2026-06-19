@@ -4,8 +4,7 @@ from pydantic import BaseModel
 import subprocess
 import tempfile
 import os
- 
- 
+
 app = FastAPI(title="Code Runner", version="1.0.0")
 
 app.add_middleware(
@@ -14,7 +13,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 LANGUAGE_CONFIG = {
     "python": {
@@ -39,28 +37,30 @@ LANGUAGE_CONFIG = {
     },
 }
 
+
 class ExecuteRequest(BaseModel):
     code: str
     language: str = "python"
     stdin: str = ""
-    
-    
+
+
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
 
 @app.post("/execute")
 def execute(request: ExecuteRequest):
     cfg = LANGUAGE_CONFIG.get(request.language.lower())
     if not cfg:
         return {"success": False, "error": f"Unsupported language: {request.language}"}
-    
-    
+
+    # Write code to a temp file
     with tempfile.TemporaryDirectory() as tmpdir:
-        filepath = os.path.join(tmpdir, cfg['filename'])
+        filepath = os.path.join(tmpdir, cfg["filename"])
         with open(filepath, "w") as f:
             f.write(request.code)
-            
+
         try:
             result = subprocess.run(
                 [
@@ -77,7 +77,7 @@ def execute(request: ExecuteRequest):
                 timeout=15,
                 input=request.stdin or None,
             )
-            
+
             return {
                 "success": result.returncode == 0,
                 "stdout": result.stdout,
@@ -85,7 +85,8 @@ def execute(request: ExecuteRequest):
                 "output": result.stdout + result.stderr,
                 "exit_code": result.returncode,
             }
+
         except subprocess.TimeoutExpired:
-            return {"success": False, "error": "Excesution time out (15s limit)"}
+            return {"success": False, "error": "Execution timed out (15s limit)"}
         except Exception as e:
             return {"success": False, "error": str(e)}
